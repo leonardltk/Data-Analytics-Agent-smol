@@ -11,6 +11,9 @@ https://menlo.ai/
 https://e2b.dev/
 ```
 
+# Pipeline
+![Pipeline](images/Pipeline.png)
+
 # Demo
 - Prompt 2
 ![Prompt 2](images/Prompt2.png)
