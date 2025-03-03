@@ -1,0 +1,15 @@
+e2b-code-interpreter==1.0.5
+gradio==5.20.0
+gradio_client==1.7.2
+groq==0.18.0
+jigsawstack==0.1.28
+jupyterlab==4.3.5
+jupyterlab_pygments==0.3.0
+jupyterlab_server==2.27.3
+matplotlib==3.10.1
+matplotlib-inline==0.1.7
+openpyxl==3.1.5
+pandas==2.2.3
+python-dotenv==1.0.1
+SQLAlchemy==2.0.38
+sqlparse==0.5.3
