@@ -186,17 +186,55 @@ class DataAnalyticsAgent():
             'datachat_warehouse': pd.io.sql.get_schema(warehouse_df, 'datachat_warehouse', con=sql_engine),
             'datachat_address': pd.io.sql.get_schema(address_df, 'datachat_address', con=sql_engine),
         }
+        # Add foreign key relationships to each table's schema
+        # datachat_invoice
+        schemas['datachat_invoice'] = schemas['datachat_invoice'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (origin_address_id) REFERENCES datachat_outlet(address_id), -- origin_address_type = 1 means use datachat_outlet"
+            "\n\tFOREIGN KEY (origin_address_id) REFERENCES datachat_warehouse(address_id), -- origin_address_type = 2 means use datachat_warehouse"
+            "\n\tFOREIGN KEY (invoice_id) REFERENCES datachat_invoiceitem(invoice_id)"
+            "\n);"
+        )
+        # datachat_invoiceitem
+        schemas['datachat_invoiceitem'] = schemas['datachat_invoiceitem'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (invoice_id) REFERENCES datachat_invoice(invoice_id)"
+            ",\n\tFOREIGN KEY (product_id) REFERENCES datachat_product(id)"
+            "\n);"
+        )
+        # datachat_product
+        schemas['datachat_product'] = schemas['datachat_product'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (id) REFERENCES datachat_invoiceitem(product_id)"
+            "\n);"
+        )
+        # datachat_outlet
+        schemas['datachat_outlet'] = schemas['datachat_outlet'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (address_id) REFERENCES datachat_invoice(origin_address_id)"
+            ",\n\tFOREIGN KEY (address_id) REFERENCES datachat_address(id)"
+            "\n);"
+        )
+        # datachat_warehouse
+        schemas['datachat_warehouse'] = schemas['datachat_warehouse'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (address_id) REFERENCES datachat_invoice(origin_address_id)"
+            ",\n\tFOREIGN KEY (address_id) REFERENCES datachat_address(id)"
+            "\n);"
+        )
+        # datachat_address
+        schemas['datachat_address'] = schemas['datachat_address'].strip().rstrip("\n);") + (
+            ",\n\tFOREIGN KEY (id) REFERENCES datachat_outlet(address_id)"
+            ",\n\tFOREIGN KEY (id) REFERENCES datachat_warehouse(address_id)"
+            "\n);"
+        )
+        # Concatenate all schemas
         sql_schema = "-- DataChat Database Schema\n\n"
         for table, schema in schemas.items():
             cleaned_schema = schema.strip().rstrip(";")
             sql_schema += f"-- Table: {table}\n{cleaned_schema};\n\n"
-        # To Do: add foreign keys to link them  <----- search for these
+        print(f"{yellow_c}{sql_schema}{NC}")
 
         return sql_engine, sql_schema
 
     # Visualisation
     def inference_should_visualize(self, user_query):
-        # To Do: Update prompt to just return "require matplotlib"  <----- search for these
+        # To Do: Update prompt to just return "require matplotlib"
         messages_visualisation = [
             {"role": "system", "content": "Validate whether the user requires visualisation in the task. If only table output is required, reply false. If matplotlib is required to show some plots, reply true. Provide output in json format, with key 'require matplotlib' and a boolean value"},
             {"role": "user", "content": "I want to find out how D0001 and T0001 perform across outlets 1 to 2. Please output the results in a table where column headers are outlet names and row headers are product names"},
@@ -210,7 +248,7 @@ class DataAnalyticsAgent():
         messages_visualisation[-1]['content'] = user_query + '\nProvide prediction in json format, with key "require matplotlib" and a boolean value'
 
         response = self.groq_client.chat.completions.create(
-            model = "llama-3.1-8b-instant",
+            model = "llama-3.3-70b-versatile", # "llama-3.1-8b-instant" sometimes predicts key wrongly
             messages = messages_visualisation,
             response_format = { "type": "json_object" },
         )
@@ -222,13 +260,14 @@ class DataAnalyticsAgent():
         return require_visualisation_dict['require matplotlib']
 
     def perform_visualisation(self, result_df, user_query):
+        # To Do: when result_df is empty, code might hallucinate examples, so need to check for empty dataframe first
         python_template = """
         ```python
         def function_v1(insert arguments here):
             # Insert code here
         ```
         """
-        # To Do: Enable more flexibility here  <----- search for these
+        # To Do: Enable more flexibility here
         SYSTEM_PROMPT = f"""
         You are a Python data scientist. 
         Use this template:
@@ -257,7 +296,7 @@ class DataAnalyticsAgent():
         )
         # Extract and run the code
         code = response.choices[0].message.content
-        # To Do: Stabilise this hacky python code retrieval  <----- search for these
+        # To Do: Stabilise this hacky python code retrieval
         if "```python" in code:
             code = code.split("```python")[1].split("```")[0]
         print(code)
@@ -418,7 +457,7 @@ class DataAnalyticsAgent():
         plot_code, plot_fig = "", None
         if should_visualize:
             plot_code, plot_fig = self.perform_visualisation(result_df, user_query)
-            # To Do: Find a way to extract the plot from e2b in a more elegant way  <----- search for these
+            # To Do: Find a way to extract the plot from e2b in a more elegant way
             with open('tmp.png', "wb") as f: f.write(base64.b64decode(plot_fig.png))
             plot_fig = 'tmp.png'
 
@@ -487,7 +526,7 @@ def main():
                 )
 
             with gr.Column(scale=1):
-                # To Do: Enable matplotlib output in the e2b results.  <----- search for these
+                # To Do: Enable matplotlib output in the e2b results.
                 # visualisation_plot_output = gr.Plot(
                 #     label = "Visualisation Output",
                 #     format = "png",
